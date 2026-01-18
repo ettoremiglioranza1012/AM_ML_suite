@@ -20,7 +20,7 @@ def main():
     print("=" * 60)
     
     # 1. Create domain (use 5mm for fast test, 1mm for production)
-    resolution = 5.0  # mm
+    resolution = 4.0  # mm
     domain = create_bracket_domain(
         size_mm=(120, 60, 80),
         resolution_mm=resolution

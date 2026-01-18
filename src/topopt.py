@@ -46,7 +46,7 @@ class SIMPParams:
     penalty: float = 3.0
     filter_radius: float = 2.0
     move_limit: float = 0.2
-    rho_min: float = 0.001
+    rho_min: float = 0.01  # Increased from 0.001 for numerical stability
     max_iterations: int = 100
     convergence_tol: float = 0.01
     E_min: float = 1e-9
@@ -219,12 +219,17 @@ class SIMPOptimizer:
         vf = self.params.volume_fraction
         
         # Bisection per trovare Lagrangiano
-        l1, l2 = 0, 1e9
+        l1, l2 = 1e-9, 1e9  # Avoid division by zero
         
         # Volume design space
         n_design = np.sum(self.design_mask)
         
-        while (l2 - l1) / (l1 + l2) > 1e-3:
+        for _ in range(100):  # Max iterations for bisection
+            if l1 + l2 < 1e-12:  # Safety check
+                break
+            if (l2 - l1) / max((l1 + l2), 1e-10) <= 1e-3:
+                break
+                
             lmid = 0.5 * (l1 + l2)
             
             # Update formula OC

@@ -172,7 +172,7 @@ def create_brk_a_01_static_case_1(
     - Carico: 15,000 N verticale (Z negativo) sull'occhiello
     
     Args:
-        domain_shape: Dimensioni griglia (nx, ny, nz)
+        domain_shape: Dimensioni griglia (nx, ny, nz) in elementi
         resolution_mm: Risoluzione in mm
         
     Returns:
@@ -196,20 +196,60 @@ def create_brk_a_01_static_case_1(
     # === LOADS ===
     # Carico sull'occhiello: 15,000 N in direzione -Z
     # L'occhiello è al centro superiore del dominio
-    eyelet_z = nz - 15  # 15mm dal top
+    # 
+    # IMPORTANT: Must match geometry.py eyelet parameters exactly!
+    # geometry.py defines:
+    #   - eyelet_z_offset_mm = 15 (offset from top)
+    #   - eyelet_height_mm = 20 (vertical extent)
+    #   - eyelet_diameter_mm = 12 (hole diameter, so inner_radius = 6mm)
+    #   - eyelet_offset_mm = 4 (material around hole, so outer_radius = 10mm)
+    
+    # Geometric parameters (must match geometry.py)
+    eyelet_z_offset_mm = 15.0   # mm from top
+    eyelet_height_mm = 20.0     # mm height of eyelet region
+    eyelet_diameter_mm = 12.0   # mm hole diameter
+    eyelet_offset_mm = 4.0      # mm material thickness around hole
+    
+    # Convert to grid indices
+    eyelet_z_offset_idx = int(eyelet_z_offset_mm / resolution_mm)
+    eyelet_height_idx = max(1, int(eyelet_height_mm / resolution_mm))
+    
+    # Calculate Z range where eyelet material exists (matching geometry.py)
+    eyelet_z_center = nz - eyelet_z_offset_idx
+    z_start = max(0, eyelet_z_center - eyelet_height_idx // 2)
+    z_end = min(nz, z_start + eyelet_height_idx)
+    
+    # Apply load at middle of eyelet height (where material is guaranteed)
+    eyelet_z = (z_start + z_end) // 2
+    eyelet_z = max(1, min(nz - 1, eyelet_z))  # Ensure valid index
+    
     eyelet_x = nx // 2
     eyelet_y = ny // 2
     
-    # Nodi attorno al foro dell'occhiello
-    eyelet_nodes = []
-    eyelet_radius = 10  # mm (raggio esterno dell'occhiello)
+    # Radii for load application ring (matching geometry.py)
+    # outer_radius = (diameter/2 + offset) = (12/2 + 4) = 10mm
+    # inner_radius = diameter/2 = 6mm (but we use slightly larger to avoid void boundary)
+    outer_radius_mm = eyelet_diameter_mm / 2 + eyelet_offset_mm  # 10mm
+    inner_radius_mm = eyelet_diameter_mm / 2 + 0.5  # 6.5mm - slightly inside to avoid void edge
     
-    for i in range(max(0, eyelet_x - eyelet_radius), min(nx + 1, eyelet_x + eyelet_radius + 1)):
-        for j in range(max(0, eyelet_y - eyelet_radius), min(ny + 1, eyelet_y + eyelet_radius + 1)):
+    outer_radius = outer_radius_mm / resolution_mm
+    inner_radius = inner_radius_mm / resolution_mm
+    
+    # Collect nodes in the ring around the hole
+    eyelet_nodes = []
+    search_range = int(outer_radius) + 2
+    for i in range(max(0, eyelet_x - search_range), min(nx + 1, eyelet_x + search_range + 1)):
+        for j in range(max(0, eyelet_y - search_range), min(ny + 1, eyelet_y + search_range + 1)):
             dist = np.sqrt((i - eyelet_x)**2 + (j - eyelet_y)**2)
-            if 6 <= dist <= eyelet_radius:  # Anello tra raggio 6 e 10
+            # Use strict inequality to avoid nodes exactly on void boundary
+            if inner_radius < dist <= outer_radius:
                 node_idx = i * (ny + 1) * (nz + 1) + j * (nz + 1) + eyelet_z
                 eyelet_nodes.append(node_idx)
+    
+    # If no nodes found in ring, use center node
+    if len(eyelet_nodes) == 0:
+        center_node = eyelet_x * (ny + 1) * (nz + 1) + eyelet_y * (nz + 1) + eyelet_z
+        eyelet_nodes.append(center_node)
     
     load_eyelet = DistributedLoad(
         node_indices=np.array(eyelet_nodes, dtype=np.int64),

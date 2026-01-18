@@ -265,6 +265,9 @@ def solve_fem(
         
     Returns:
         Vettore spostamenti u
+        
+    Raises:
+        ValueError: Se la matrice è singolare o mal condizionata
     """
     n_dofs = K.shape[0]
     
@@ -272,19 +275,49 @@ def solve_fem(
     all_dofs = np.arange(n_dofs)
     free_dofs = np.setdiff1d(all_dofs, constrained_dofs)
     
+    if len(free_dofs) == 0:
+        warnings.warn("Nessun DOF libero - tutti i nodi sono vincolati")
+        return np.zeros(n_dofs)
+    
     # Estrai sottosistema
     K_ff = K[free_dofs, :][:, free_dofs]
     F_f = F[free_dofs]
     
+    # Verifica che la matrice non sia vuota o degenere
+    if K_ff.nnz == 0:
+        raise ValueError("Matrice di rigidezza vuota (nnz=0). Verifica la connettività del dominio.")
+    
+    # Verifica diagonale (elementi con rigidezza zero = disconnessi)
+    diag = K_ff.diagonal()
+    zero_diag_count = np.sum(np.abs(diag) < 1e-15)
+    if zero_diag_count > 0:
+        warnings.warn(f"Trovati {zero_diag_count} DOF con rigidezza zero sulla diagonale. "
+                      f"La struttura potrebbe essere disconnessa.")
+        # Aggiungi una piccola rigidezza per stabilizzare (tecnica di regolarizzazione)
+        regularization = 1e-6 * np.max(np.abs(diag)) if np.max(np.abs(diag)) > 0 else 1e-6
+        K_ff = K_ff + sparse.diags([regularization] * K_ff.shape[0], format='csr')
+    
     # Risolvi
-    if method == "direct":
-        u_f = spsolve(K_ff, F_f)
-    elif method == "iterative":
-        u_f, info = cg(K_ff, F_f, tol=1e-8, maxiter=5000)
-        if info != 0:
-            warnings.warn(f"CG non converge: info={info}")
-    else:
-        raise ValueError(f"Metodo sconosciuto: {method}")
+    try:
+        if method == "direct":
+            with warnings.catch_warnings():
+                warnings.filterwarnings('error')
+                u_f = spsolve(K_ff, F_f)
+        elif method == "iterative":
+            u_f, info = cg(K_ff, F_f, tol=1e-8, maxiter=5000)
+            if info != 0:
+                warnings.warn(f"CG non converge: info={info}")
+        else:
+            raise ValueError(f"Metodo sconosciuto: {method}")
+    except Exception as e:
+        raise ValueError(f"Errore nella soluzione FEM: {e}. "
+                         f"La matrice potrebbe essere singolare. "
+                         f"Verifica che tutti i nodi caricati siano connessi ai vincoli.")
+    
+    # Verifica NaN o Inf nei risultati
+    if np.any(np.isnan(u_f)) or np.any(np.isinf(u_f)):
+        raise ValueError("Soluzione FEM contiene NaN o Inf. "
+                         "La matrice è probabilmente singolare o mal condizionata.")
     
     # Ricostruisci vettore completo
     u = np.zeros(n_dofs)

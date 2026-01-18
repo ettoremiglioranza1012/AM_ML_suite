@@ -326,7 +326,20 @@ class SIMPOptimizer:
                 constrained_dofs = lc.get_constrained_dofs()
                 
                 # Risolvi
-                u = solve_fem(K, F, constrained_dofs, method="direct")
+                try:
+                    u = solve_fem(K, F, constrained_dofs, method="direct")
+                except ValueError as e:
+                    print(f"ERRORE FEM: {e}")
+                    print("Suggerimenti:")
+                    print("  - Verifica che i carichi siano applicati su nodi connessi ai vincoli")
+                    print("  - Controlla che il design space non sia disconnesso")
+                    print("  - Prova ad aumentare rho_min in SIMPParams")
+                    raise
+                
+                # Verifica NaN negli spostamenti
+                if np.any(np.isnan(u)) or np.any(np.isinf(u)):
+                    raise ValueError(f"Spostamenti non validi (NaN/Inf) all'iterazione {iteration+1}. "
+                                     "La matrice di rigidezza potrebbe essere singolare.")
                 
                 # Compliance
                 c, _ = compute_element_compliance(
@@ -338,6 +351,12 @@ class SIMPOptimizer:
                 
                 # Sensibilità
                 dc = self._compute_sensitivities(density_filtered, u)
+                
+                # Verifica NaN nelle sensitività
+                if np.any(np.isnan(dc)):
+                    print(f"ATTENZIONE: NaN nelle sensitività all'iterazione {iteration+1}")
+                    dc = np.nan_to_num(dc, nan=0.0, posinf=0.0, neginf=0.0)
+                
                 dc_total += dc
             
             # Filtra sensibilità

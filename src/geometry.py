@@ -176,6 +176,23 @@ def create_bracket_domain(
             actual_height
         )
     
+    # 4. PILASTRO DI CONNESSIONE: Garantisce continuità strutturale base-occhiello
+    # Questo evita che l'occhiello sia una "bolla" isolata durante l'ottimizzazione
+    # Il pilastro è marcato come Fixed (1) per garantire il percorso di carico
+    pillar_radius = (eyelet_diameter_mm / 2 + eyelet_offset_mm) / resolution_mm  # stesso raggio esterno occhiello
+    pillar_z_start = base_z  # parte dalla cima della base
+    pillar_z_end = z_start   # arriva alla base dell'occhiello
+    
+    if pillar_z_end > pillar_z_start:
+        _mark_cylinder_fixed(
+            grid,
+            eyelet_x_center,
+            eyelet_y_center,
+            pillar_z_start,
+            pillar_radius,
+            pillar_z_end - pillar_z_start
+        )
+    
     return VoxelDomain(grid=grid, resolution_mm=resolution_mm)
 
 

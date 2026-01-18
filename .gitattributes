@@ -1,0 +1,2 @@
+# Make Python the only language shown on GitHub
+*.ipynb linguist-vendored

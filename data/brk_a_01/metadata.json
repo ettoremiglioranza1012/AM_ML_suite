@@ -1,15 +1,15 @@
 {
   "case": "BRK-A-01",
-  "resolution_mm": 3.0,
+  "resolution_mm": 4.0,
   "domain_shape": [
-    40,
-    20,
-    26
+    30,
+    15,
+    20
   ],
   "volume_fraction_target": 0.25,
-  "volume_fraction_final": 0.2500069935579095,
-  "compliance_final": 0.1148639586225637,
-  "iterations": 50,
-  "converged": false,
-  "elapsed_time_s": 2557.5595281124115
+  "volume_fraction_final": 0.24998101015527485,
+  "compliance_final": 0.16662079141823577,
+  "iterations": 38,
+  "converged": true,
+  "elapsed_time_s": 308.1879940032959
 }

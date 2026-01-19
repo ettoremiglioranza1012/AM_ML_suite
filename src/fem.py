@@ -271,9 +271,18 @@ def solve_fem(
     """
     n_dofs = K.shape[0]
     
-    # DOF liberi
+    # Identifica i DOF che hanno almeno un elemento connesso (diagonale != 0)
+    diag_K = K.diagonal()
+    orphaned_dofs = np.where(np.abs(diag_K) < 1e-15)[0]
+    
+    # Aggiungi i nodi orfani ai constrained_dofs per "bloccarli"
+    if len(orphaned_dofs) > 0:
+        print(f"[INFO] Trovati {len(orphaned_dofs)} DOF orfani (senza rigidezza). Verranno esclusi dal sistema.")
+    effective_constraints = np.unique(np.concatenate([constrained_dofs, orphaned_dofs]))
+    
+    # DOF liberi (escludendo vincoli e nodi orfani)
     all_dofs = np.arange(n_dofs)
-    free_dofs = np.setdiff1d(all_dofs, constrained_dofs)
+    free_dofs = np.setdiff1d(all_dofs, effective_constraints)
     
     if len(free_dofs) == 0:
         warnings.warn("Nessun DOF libero - tutti i nodi sono vincolati")
@@ -286,16 +295,6 @@ def solve_fem(
     # Verifica che la matrice non sia vuota o degenere
     if K_ff.nnz == 0:
         raise ValueError("Matrice di rigidezza vuota (nnz=0). Verifica la connettività del dominio.")
-    
-    # Verifica diagonale (elementi con rigidezza zero = disconnessi)
-    diag = K_ff.diagonal()
-    zero_diag_count = np.sum(np.abs(diag) < 1e-15)
-    if zero_diag_count > 0:
-        warnings.warn(f"Trovati {zero_diag_count} DOF con rigidezza zero sulla diagonale. "
-                      f"La struttura potrebbe essere disconnessa.")
-        # Aggiungi una piccola rigidezza per stabilizzare (tecnica di regolarizzazione)
-        regularization = 1e-6 * np.max(np.abs(diag)) if np.max(np.abs(diag)) > 0 else 1e-6
-        K_ff = K_ff + sparse.diags([regularization] * K_ff.shape[0], format='csr')
     
     # Risolvi
     try:

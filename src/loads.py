@@ -226,11 +226,16 @@ def create_brk_a_01_static_case_1(
     eyelet_x = nx // 2
     eyelet_y = ny // 2
     
-    # Radii for load application ring (matching geometry.py)
-    # outer_radius = (diameter/2 + offset) = (12/2 + 4) = 10mm
-    # inner_radius = diameter/2 = 6mm (but we use slightly larger to avoid void boundary)
-    outer_radius_mm = eyelet_diameter_mm / 2 + eyelet_offset_mm  # 10mm
-    inner_radius_mm = eyelet_diameter_mm / 2 + 0.5  # 6.5mm - slightly inside to avoid void edge
+    # Margine di sicurezza: almeno 1.25 voxel di distanza dal vuoto
+    # Con griglia coarse (es. resolution 4mm), offset di 0.5mm non basta
+    safety_margin = resolution_mm * 1.25
+    
+    inner_radius_mm = (eyelet_diameter_mm / 2) + safety_margin
+    outer_radius_mm = (eyelet_diameter_mm / 2) + eyelet_offset_mm
+    
+    # Verifica che ci sia spazio tra inner e outer
+    if inner_radius_mm >= outer_radius_mm:
+        inner_radius_mm = (eyelet_diameter_mm / 2) + (eyelet_offset_mm * 0.5)
     
     outer_radius = outer_radius_mm / resolution_mm
     inner_radius = inner_radius_mm / resolution_mm

@@ -15,8 +15,8 @@ from dataclasses import dataclass, field
 from typing import Tuple, Optional, List, Callable
 import time
 
-from .geometry import VoxelDomain
-from .loads import LoadCase
+from ..core.geometry import VoxelDomain
+from ..core.loads import LoadCase
 from .fem import (
     MaterialProperties,
     assemble_global_stiffness,

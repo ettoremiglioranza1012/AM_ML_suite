@@ -1,288 +1,294 @@
 # AM - Additive Manufacturing Topology Optimization
 
-## 🎯 Project Objective
+**Sistema ibrido HPC + AI per Topology Optimization in Additive Manufacturing**
 
-End-to-end prototype of **Topology Optimization** for aeronautical components in Metal AM.  
-First milestone: `parametric inputs → TO → 3D density field` for the pilot case BRK-A-01.
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ---
 
-## 🔧 Technical Stack (v1.0)
+## 🎯 Vision
 
-| Component | Choice | Rationale |
-|-----------|--------|-----------|
-| **Language** | Python 3.11+ | Mature scientific ecosystem (NumPy, SciPy) |
-| **Representation** | 3D Voxel | Regular grid, 1 mm step |
-| **TO Solver** | Custom SIMP 3D | Simplified in-house implementation, extensible |
-| **Linear Algebra** | SciPy sparse | Sparse matrices for FEM on large grids |
-| **Visualization** | PyVista / Matplotlib | 3D density field rendering |
+Costruire un sistema end-to-end per la **Topology Optimization** di componenti aeronautici in Metal AM, combinando:
 
-### Core Dependencies
+1. **Solver Numerico Python** → Ground Truth per validazione e prototipazione
+2. **Motore HPC C++/MPI** → Generazione massiva di dataset di training
+3. **Modello AI (Deep Learning)** → Inferenza rapida (ms vs minuti)
+
+---
+
+## 🏗️ Architettura
+
 ```
-numpy>=1.24
-scipy>=1.11
-pyvista>=0.42
-```
-
----
-
-## 📋 TECHNICAL SPECIFICATION: PILOT CASE - AERO-BRACKET V1
-
-### 1. Part Family and Process
-
-| Parameter | Value |
-|-----------|-------|
-| **Object** | Actuator support bracket (Pylon/Engine Bracket) |
-| **Material** | Titanium Alloy **Ti6Al4V** |
-| **Process** | Metal AM - **L-PBF** (Laser Powder Bed Fusion) |
-
-#### Ti6Al4V Material Properties
-| Property | Value | Unit |
-|----------|-------|------|
-| Young's Modulus (E) | 113.8 | GPa |
-| Poisson's Ratio (ν) | 0.342 | - |
-| Density (ρ) | 4430 | kg/m³ |
-| Yield Strength (σ_y) | 880 | MPa |
-
----
-
-### 2. Problem Domain (Geometry and Mesh)
-
-#### Bounding Box
-- **Dimensions:** 120 × 60 × 80 mm
-
-#### Fixed Interfaces (Non-Design Space)
-
-| Interface | Description |
-|-----------|-------------|
-| **Base** | 4 through-holes (Ø 8mm) with 5mm thick flange (pylon mounting constraint) |
-| **Upper Eyelet** | 1 hole (Ø 12mm) for actuator pin, 4mm solid material offset around radius |
-
-#### Computational Resolution
-- **Voxel Grid:** 120 × 60 × 80 mm with 1 mm step
-- **Total Elements:** 576,000 voxels
-
----
-
-### 3. Loads and Objectives (Physics)
-
-#### Boundary Conditions (Load Cases)
-
-| Case | Description | Value |
-|------|-------------|-------|
-| **Static 1** | Vertical load (Z) on eyelet | 15,000 N |
-| **Static 2** | Inclined load at 30° (X-Z component) | 10,000 N |
-
-#### Optimization Objectives
-
-| Parameter | Value |
-|-----------|-------|
-| **Primary Objective** | Compliance minimization (maximum stiffness) |
-| **Mass Constraint** | Volume fraction ≤ 0.25 (remove 75% of material) |
-| **Safety Factor** | SF ≥ 1.5 relative to σ_y = 880 MPa |
-
----
-
-### 4. Manufacturing Constraints (DfAM)
-
-| Constraint | Value | Notes |
-|------------|-------|-------|
-| **Overhang Angle** | ≥ 45° | Relative to XY build plane |
-| **Minimum Member Size** | 2 mm | Structural stability + laser fusion quality |
-| **Symmetry** | Y-Z Plane | Longitudinal symmetry constraint |
-
----
-
-### 5. Validation Dataset
-
-| ID | Description | Status |
-|----|-------------|--------|
-| **BRK-A-01** | Purely vertical load (Baseline) | 🎯 Target v1 |
-| **BRK-A-02** | Eyelet position variation (+10mm in X) | Planned |
-| **BRK-A-03** | Combined Tension + Torsion load | Planned |
-
----
-
-## 💻 Data Structures (Developer Reference)
-
-### Domain Tensor (3D)
-```python
-# 3D Matrix: (120, 60, 80) with 1mm step
-# Values:
-#   1  = Fixed (Non-Design Space)
-#   0  = Optimizable (Design Space)
-#  -1  = Void (outside domain)
-
-domain: np.ndarray  # shape: (nx, ny, nz), dtype: int8
+┌─────────────────────────────────────────────────────────────────────────┐
+│                          AM TOPOLOGY OPTIMIZATION                        │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐                  │
+│  │   CORE      │    │  NUMERICAL  │    │     AI      │                  │
+│  │             │    │   (Python)  │    │  (PyTorch)  │                  │
+│  │ • geometry  │◄───┤             │    │             │                  │
+│  │ • loads     │    │ • fem.py    │    │ • model.py  │                  │
+│  │             │◄───┤ • topopt.py │    │ • inference │                  │
+│  └──────┬──────┘    └──────┬──────┘    └──────┬──────┘                  │
+│         │                  │                  │                          │
+│         │      Shared      │   Ground Truth   │   Fast Inference        │
+│         │      Definitions │   Validation     │   (Trained Model)       │
+│         │                  │                  │                          │
+├─────────┴──────────────────┴──────────────────┴─────────────────────────┤
+│                                                                          │
+│  ┌──────────────────────────────────────────────────────────────────┐   │
+│  │                     C++ ENGINE (HPC Data Factory)                 │   │
+│  │                                                                    │   │
+│  │   • High-performance FEM solver                                   │   │
+│  │   • MPI parallelization for massive dataset generation            │   │
+│  │   • Produces training data for AI model                           │   │
+│  └──────────────────────────────────────────────────────────────────┘   │
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Boundary Conditions Schema
-```python
-@dataclass
-class BoundaryCondition:
-    """Boundary condition for FEM."""
-    node_coords: np.ndarray   # (N, 3) constrained node coordinates
-    dof_mask: np.ndarray      # (N, 3) bool - which DOFs are locked
-    
-@dataclass  
-class LoadCase:
-    """Load case."""
-    name: str
-    node_coords: np.ndarray   # (M, 3) application points
-    force_vectors: np.ndarray # (M, 3) force vectors [Fx, Fy, Fz] in N
-```
+### Flusso Dati
 
-### Optimization Parameters
-```python
-@dataclass
-class SIMPParams:
-    """SIMP Topology Optimization parameters."""
-    volume_fraction: float = 0.25    # Target volume
-    penalty: float = 3.0             # SIMP penalization (p)
-    filter_radius: float = 2.0       # Density filter radius [mm]
-    move_limit: float = 0.2          # Update limit per iteration
-    max_iterations: int = 100
-    convergence_tol: float = 0.01
 ```
-
-### Output: Density Field
-```python
-@dataclass
-class TOResult:
-    """Topology Optimization result."""
-    density: np.ndarray       # (nx, ny, nz), values in [0, 1]
-    compliance: float         # Final compliance
-    volume_fraction: float    # Effective volume fraction
-    iterations: int           # Completed iterations
-    converged: bool
+                    ┌───────────────────┐
+                    │  Problem Definition│
+                    │  (geometry, loads) │
+                    └─────────┬─────────┘
+                              │
+              ┌───────────────┼───────────────┐
+              │               │               │
+              ▼               ▼               ▼
+     ┌────────────┐   ┌────────────┐   ┌────────────┐
+     │  Numerical │   │  C++ HPC   │   │    AI      │
+     │   Solver   │   │  Engine    │   │  Inference │
+     │  (Python)  │   │  (Future)  │   │  (Future)  │
+     └─────┬──────┘   └─────┬──────┘   └─────┬──────┘
+           │                │                │
+           │     ~minutes   │   ~seconds     │   ~milliseconds
+           │                │   (per case)   │
+           ▼                ▼                ▼
+     ┌────────────────────────────────────────────┐
+     │              Density Field                 │
+     │           (3D voxel array)                 │
+     └────────────────────────────────────────────┘
 ```
 
 ---
 
-## 🧮 SIMP 3D Algorithm (Simplified)
-
-### Mathematical Formulation
-
-**Objective:**
-$$\min_{\rho} \quad C(\rho) = \mathbf{U}^T \mathbf{K}(\rho) \mathbf{U}$$
-
-**Subject to:**
-$$\frac{V(\rho)}{V_0} \leq f \quad \text{(volume constraint)}$$
-$$0 < \rho_{min} \leq \rho_e \leq 1 \quad \text{(density bounds)}$$
-
-**SIMP Interpolation:**
-$$E_e(\rho_e) = E_{min} + \rho_e^p (E_0 - E_{min})$$
-
-where:
-- $\rho_e$ = element density
-- $p$ = penalty (typically 3)
-- $E_0$ = Young's modulus of solid material
-
-### Sensitivity Analysis
-$$\frac{\partial C}{\partial \rho_e} = -p \rho_e^{p-1} \mathbf{u}_e^T \mathbf{k}_0 \mathbf{u}_e$$
-
----
-
-## 📁 Repository Structure
+## 📁 Struttura Progetto
 
 ```
 AM/
-├── README.md                    # This file
-├── pyproject.toml               # Project configuration
-├── main.py                      # Entry point
 │
-├── data/
-│   └── brk_a_01/                # Pilot case data
-│       ├── .gitkeep             # Placeholder
-│       ├── density_field.npy    # Output: density field (generated)
-│       └── metadata.json        # Run metadata (generated)
+├── main.py                      # 🎮 Entry point unificato
+│                                #    --mode numerical | ai
 │
 ├── src/
-│   ├── __init__.py              # Package init
-│   ├── geometry.py              # Voxel grid + design/non-design marking
-│   ├── loads.py                 # Load cases and boundary conditions
-│   ├── fem.py                   # K matrix assembly, FEM solver
-│   └── topopt.py                # SIMP loop: density update, compliance
+│   └── am/                      # 📦 Package Python principale
+│       │
+│       ├── core/                # 🔧 Definizioni condivise
+│       │   ├── geometry.py      #    Dominio voxel, design space
+│       │   └── loads.py         #    Load cases, boundary conditions
+│       │
+│       ├── numerical/           # 🧮 Solver Python (Ground Truth)
+│       │   ├── fem.py           #    Assemblaggio matrice K, solver
+│       │   ├── topopt.py        #    Loop SIMP, Optimality Criteria
+│       │   └── README.md        #    Documentazione dettagliata
+│       │
+│       └── ai/                  # 🤖 Modulo Deep Learning
+│           ├── model.py         #    Architettura 3D U-Net
+│           └── inference.py     #    Pipeline di inferenza
 │
-└── notebooks/
-    └── 01_brk_a_01_topopt.ipynb # Interactive pilot case test
+├── cpp_engine/                  # ⚡ HPC Data Factory (C++/MPI)
+│   ├── CMakeLists.txt           #    Build configuration
+│   └── src/                     #    Sorgenti C++ (future)
+│
+├── data/
+│   └── brk_a_01/                # 📊 Dati caso pilota
+│       ├── density_field.npy    #    Campo densità output
+│       └── metadata.json        #    Metadati run
+│
+├── notebooks/                   # 📓 Jupyter notebooks
+│   ├── 01_brk_a_01_topopt.ipynb #    Ottimizzazione interattiva
+│   └── 02_visualize_results.ipynb #  Visualizzazione 3D
+│
+├── pyproject.toml               # ⚙️ Configurazione progetto
+└── uv.lock                      # 🔒 Lock dipendenze
 ```
 
-### Module Descriptions
+---
 
-| Module | Responsibility |
+## 🧩 Moduli
+
+### `am.core` - Definizioni Condivise
+
+Contiene le classi che definiscono il problema fisico, usate trasversalmente da tutti i solver:
+
+| Classe | Descrizione |
+|--------|-------------|
+| `VoxelDomain` | Griglia 3D con marking design/non-design/void |
+| `LoadCase` | Caso di carico con forze e vincoli |
+| `BoundaryCondition` | Condizioni al contorno (DOF vincolati) |
+| `PointLoad` | Carichi puntuali applicati |
+
+```python
+from am.core.geometry import create_bracket_domain, VoxelDomain
+from am.core.loads import create_brk_a_01_static_case_1, LoadCase
+```
+
+### `am.numerical` - Solver Python
+
+Il prototipo originale, ora incapsulato come modulo di validazione:
+
+| Modulo | Responsabilità |
 |--------|----------------|
-| `geometry.py` | Generates 3D voxel grid, marks design (0) vs non-design (1) vs void (-1) zones. Defines base, eyelet, bounding box. |
-| `loads.py` | Defines LoadCase with boundary conditions and forces. Currently only Static Case 1 (15 kN vertical). |
-| `fem.py` | Stiffness matrix K assembly for isotropic voxel grid (8-node hexahedron). Sparse solver. |
-| `topopt.py` | Complete SIMP loop: density update with OC, sensitivity filter, projection to 25% volume fraction. |
+| `fem.py` | Matrice di rigidezza K (esaedro 8 nodi), solver lineare |
+| `topopt.py` | Loop SIMP: update densità, filtro, Optimality Criteria |
+
+```python
+from am.numerical.fem import MaterialProperties
+from am.numerical.topopt import SIMPOptimizer, SIMPParams
+```
+
+### `am.ai` - Deep Learning (In Sviluppo)
+
+Modulo per inferenza rapida con reti neurali:
+
+| Modulo | Responsabilità |
+|--------|----------------|
+| `model.py` | Architettura 3D U-Net per predizione densità |
+| `inference.py` | Pipeline di inferenza con modello pre-addestrato |
+
+```python
+# Future usage
+from am.ai.inference import AIOptimizer
+optimizer = AIOptimizer(model_path="models/topopt_unet.pt")
+density = optimizer.predict(domain, load_cases)
+```
+
+### `cpp_engine` - HPC Data Factory (Planned)
+
+Solver C++ ad alte prestazioni per generazione massiva di dataset:
+
+- **Linguaggio:** C++20
+- **Dipendenze:** Eigen, OpenMP, MPI (opzionale)
+- **Scopo:** Generare migliaia di esempi (input, density_field) per training AI
 
 ---
 
 ## 🚀 Quick Start
 
+### Installazione
+
 ```bash
-# 1. Install dependencies
-pip install numpy scipy matplotlib
+# Clone repository
+git clone <repo-url>
+cd AM
 
-# 2. Test modules
-python -c "from src.geometry import create_bracket_domain; print(create_bracket_domain())"
+# Setup ambiente (con uv)
+uv sync
 
-# 3. Run interactive notebook
-jupyter notebook notebooks/01_brk_a_01_topopt.ipynb
+# Oppure con pip
+pip install -e .
 ```
 
-### Code Example
+### Esecuzione
 
-```python
-from src.geometry import create_bracket_domain
-from src.loads import create_brk_a_01_static_case_1
-from src.fem import MaterialProperties
-from src.topopt import SIMPOptimizer, SIMPParams
+```bash
+# Solver numerico (default)
+uv run python main.py --mode numerical --resolution 2.0 --max-iter 50
 
-# 1. Define domain
-domain = create_bracket_domain(
-    size_mm=(120, 60, 80),
-    resolution_mm=5.0  # Use 1.0 for production
-)
+# Con parametri personalizzati
+uv run python main.py -m numerical -r 1.0 --volume-fraction 0.30 -o data/custom
 
-# 2. Load case
-load_case = create_brk_a_01_static_case_1(domain.shape)
-
-# 3. Configure and run TO
-optimizer = SIMPOptimizer(
-    domain=domain,
-    load_cases=[load_case],
-    material=MaterialProperties(),
-    params=SIMPParams(volume_fraction=0.25)
-)
-result = optimizer.run()
-
-# 4. Result: 3D density field
-print(f"Density shape: {result.density.shape}")
-print(f"Final compliance: {result.final_compliance:.4e}")
+# AI inference (richiede modello addestrato)
+uv run python main.py --mode ai --model-path models/topopt_unet.pt
 ```
+
+### Opzioni CLI
+
+| Opzione | Default | Descrizione |
+|---------|---------|-------------|
+| `--mode, -m` | `numerical` | Modalità: `numerical` o `ai` |
+| `--resolution, -r` | `1.0` | Risoluzione voxel [mm] |
+| `--volume-fraction, -vf` | `0.25` | Frazione di volume target |
+| `--max-iter` | `50` | Iterazioni massime (numerical) |
+| `--output-dir, -o` | `data/brk_a_01` | Directory output |
+| `--model-path` | - | Path modello AI (richiesto per `--mode ai`) |
 
 ---
 
-## 📊 Milestone v1.0
+## 🔬 Caso Pilota: BRK-A-01
 
-- [ ] Voxel domain definition with NDS
-- [ ] 3D stiffness matrix assembly (linear hexahedron)
-- [ ] Sparse FEM solver (SciPy)
-- [ ] Basic SIMP loop
-- [ ] Density filter
-- [ ] Density field visualization
-- [ ] BRK-A-01 test case
+**Staffa aeronautica** per supporto attuatore (Pylon/Engine Bracket)
+
+| Parametro | Valore |
+|-----------|--------|
+| **Materiale** | Ti6Al4V (E=113.8 GPa, ν=0.342) |
+| **Processo** | L-PBF (Metal AM) |
+| **Dominio** | 120 × 60 × 80 mm |
+| **Risoluzione** | 1 mm (576,000 voxel) |
+| **Carico** | 15 kN verticale su occhiello |
+| **Volume target** | 25% (rimozione 75% materiale) |
+
+### Output
+
+- `density_field.npy` - Campo densità 3D [0, 1]
+- `metadata.json` - Metadati run (compliance, iterazioni, tempo)
 
 ---
 
-## 📚 References
+## 📊 Roadmap
+
+### ✅ v0.1 - Prototipo Python
+- [x] Dominio voxel con NDS
+- [x] Assemblaggio matrice K 3D
+- [x] Solver FEM sparse
+- [x] Loop SIMP con OC
+- [x] Filtro densità
+- [x] Visualizzazione 3D
+
+### 🚧 v0.2 - Refactoring Architettura (Corrente)
+- [x] Struttura a pacchetto (`src/am/`)
+- [x] Separazione core/numerical/ai
+- [x] Entry point unificato con CLI
+- [x] Placeholder modulo AI
+- [x] Placeholder C++ engine
+
+### 📋 v0.3 - AI Module
+- [ ] Implementazione 3D U-Net (PyTorch)
+- [ ] Data loader per coppie (input, density)
+- [ ] Training script
+- [ ] Metriche validazione (IoU, compliance error)
+
+### 📋 v0.4 - C++ HPC Engine
+- [ ] FEM solver in C++/Eigen
+- [ ] Parallelizzazione OpenMP
+- [ ] Generazione dataset massivo
+- [ ] Export binario per Python
+
+### 📋 v1.0 - Sistema Completo
+- [ ] Modello AI addestrato
+- [ ] Validazione cross-solver
+- [ ] Deployment inference
+- [ ] Documentazione completa
+
+---
+
+## 📚 Riferimenti
 
 1. Bendsøe, M.P., Sigmund, O. (2003). *Topology Optimization: Theory, Methods and Applications*
 2. Andreassen, E. et al. (2011). *Efficient topology optimization in MATLAB using 88 lines of code*
-3. Liu, K., Tovar, A. (2014). *An efficient 3D topology optimization code written in Matlab*
+3. Nie, Z. et al. (2021). *TopologyGAN: Topology Optimization Using GANs*
+4. Sosnovik, I., Oseledets, I. (2019). *Neural Networks for Topology Optimization*
 
 ---
 
-*Last updated: January 17, 2026*
+## 📄 License
+
+MIT License - See [LICENSE](LICENSE) for details.
+
+---
+
+*Last updated: January 19, 2026*

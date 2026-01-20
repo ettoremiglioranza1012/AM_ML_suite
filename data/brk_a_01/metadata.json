@@ -1,15 +1,23 @@
 {
   "case": "BRK-A-01",
-  "resolution_mm": 4.0,
+  "mode": "cpp",
+  "resolution_mm": 5.0,
   "domain_shape": [
-    30,
-    15,
-    20
+    24,
+    12,
+    16
   ],
   "volume_fraction_target": 0.25,
-  "volume_fraction_final": 0.24998101015527485,
-  "compliance_final": 0.16662079141823577,
-  "iterations": 38,
-  "converged": true,
-  "elapsed_time_s": 308.1879940032959
+  "volume_fraction_final": 0.24999927272758468,
+  "compliance_final": 136.1620767921715,
+  "iterations": 50,
+  "converged": false,
+  "elapsed_time_s": 55.547833666,
+  "openmp_threads": 10,
+  "simp_config": {
+    "filter_radius": 3.5,
+    "E_min": 0.0001,
+    "penalty": 3.0,
+    "move_limit": 0.1
+  }
 }

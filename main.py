@@ -165,13 +165,16 @@ def main():
         description="AM Topology Optimization - Unified Entry Point",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
-Examples:
-  # Run numerical solver (default)
-  python main.py --mode numerical --resolution 2.0 --max-iter 50
+            Examples:
+            # Run numerical solver (default, Python SIMP)
+            python main.py --mode numerical --resolution 2.0 --max-iter 50
 
-  # Run AI inference (requires trained model)
-  python main.py --mode ai --model-path models/topopt_unet.pt
-        """
+            # Run AI inference (requires trained model)
+            python main.py --mode ai --model-path models/topopt_unet.pt
+            
+            # For C++ HPC solver, use the standalone executable:
+            ./cpp_engine/build/am_topopt --resolution 2.0 --iterations 100
+                    """
     )
     
     # Mode selection

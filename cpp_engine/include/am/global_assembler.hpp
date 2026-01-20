@@ -52,7 +52,7 @@ using Triplet = Eigen::Triplet<Scalar>;
  */
 struct SIMPParams {
     Scalar penalty = 3.0;       ///< SIMP penalty exponent (p)
-    Scalar E_min = 1e-9;        ///< Minimum Young's modulus ratio
+    Scalar E_min = 1e-6;        ///< Minimum Young's modulus ratio (1e-6 for CG stability)
     Scalar rho_min = 0.001;     ///< Minimum density threshold
     
     SIMPParams() = default;

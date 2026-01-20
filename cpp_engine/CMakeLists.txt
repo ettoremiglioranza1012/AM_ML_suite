@@ -114,6 +114,16 @@ add_executable(am_element_test
 target_link_libraries(am_element_test PRIVATE am_engine)
 
 # -----------------------------------------------------------------------------
+# Standalone Topology Optimization Executable
+# -----------------------------------------------------------------------------
+
+add_executable(am_topopt
+    src/am_topopt.cpp
+)
+
+target_link_libraries(am_topopt PRIVATE am_engine)
+
+# -----------------------------------------------------------------------------
 # Installation
 # -----------------------------------------------------------------------------
 
@@ -126,7 +136,7 @@ install(TARGETS am_engine
 
 install(DIRECTORY include/ DESTINATION include)
 
-install(TARGETS am_element_test
+install(TARGETS am_element_test am_topopt
     RUNTIME DESTINATION bin
 )
 

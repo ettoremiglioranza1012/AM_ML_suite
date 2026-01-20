@@ -52,7 +52,7 @@ struct SIMPConfig {
     Scalar filter_radius = 2.0;         ///< Filter radius in elements
     Scalar move_limit = 0.2;            ///< Maximum density change per iteration
     Scalar rho_min = 0.01;              ///< Minimum density (avoids singularity)
-    Scalar E_min = 1e-9;                ///< Minimum modulus for void elements
+    Scalar E_min = 1e-6;                ///< Minimum modulus for void elements (1e-6 for CG stability)
     int max_iterations = 100;           ///< Maximum optimization iterations
     Scalar convergence_tol = 0.01;      ///< Convergence tolerance (max density change)
     bool verbose = true;                ///< Print progress
@@ -195,6 +195,11 @@ private:
     // Precomputed data
     Matrix24 Ke0_;  ///< Base element stiffness (rho=1)
     std::vector<std::vector<FilterWeight>> filter_weights_;  ///< Per-element filter neighbors
+    
+    // Design space mask (computed from initial densities)
+    // true = design space (modifiable), false = fixed/void (constant)
+    mutable std::vector<bool> design_mask_;
+    mutable int64_t n_design_elements_ = 0;
     
     // =========================================================================
     // Private Methods

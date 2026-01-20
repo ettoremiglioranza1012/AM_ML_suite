@@ -21,6 +21,7 @@
 
 #include <Eigen/Sparse>
 #include <Eigen/IterativeLinearSolvers>
+#include <Eigen/SparseCholesky>
 #include <vector>
 #include <iostream>
 #include <chrono>

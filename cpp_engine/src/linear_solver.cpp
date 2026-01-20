@@ -130,12 +130,13 @@ std::pair<Vector, SolveStats> LinearSolver::solve(
     
     auto start = std::chrono::high_resolution_clock::now();
     
-    // Configure Conjugate Gradient solver
+    // Configure Conjugate Gradient solver with Incomplete Cholesky preconditioner
+    // IC is much more effective than Diagonal (Jacobi) for ill-conditioned FEM matrices
     // Use Lower|Upper to exploit symmetry
     Eigen::ConjugateGradient<
         SparseMatrix,
         Eigen::Lower | Eigen::Upper,
-        Eigen::DiagonalPreconditioner<Scalar>
+        Eigen::IncompleteCholesky<Scalar>
     > cg;
     
     cg.setTolerance(config_.tolerance);

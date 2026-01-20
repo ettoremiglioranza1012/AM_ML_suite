@@ -217,6 +217,13 @@ Scalar TopologyOptimizer::updateDensitiesOC(
     std::vector<Scalar> rho_new(n_elements_);
     Scalar max_change = 0.0;
     
+    // Use precomputed design mask (set in run() from initial densities)
+    // This prevents misclassifying design elements that reach rho=1.0
+    int64_t n_design = n_design_elements_;
+    if (n_design == 0) {
+        n_design = n_elements_;  // Fallback
+    }
+    
     // Bisection loop
     const int max_bisect = 100;
     for (int iter = 0; iter < max_bisect; ++iter) {
@@ -231,6 +238,12 @@ Scalar TopologyOptimizer::updateDensitiesOC(
         for (int64_t e = 0; e < n_elements_; ++e) {
             Scalar rho = density[e];
             Scalar dc = dc_filtered[e];
+            
+            // Skip non-design elements using precomputed mask
+            if (!design_mask_[e]) {
+                rho_new[e] = rho;  // Keep unchanged
+                continue;
+            }
             
             // Volume sensitivity is 1 for uniform mesh
             Scalar dv = 1.0;
@@ -248,8 +261,8 @@ Scalar TopologyOptimizer::updateDensitiesOC(
             vol_sum += rho_candidate;
         }
         
-        // Check volume constraint
-        Scalar current_vf = vol_sum / n_elements_;
+        // Check volume constraint only on design space
+        Scalar current_vf = vol_sum / n_design;
         
         if (current_vf > vf_target) {
             l1 = lmid;
@@ -346,14 +359,26 @@ IterationResult TopologyOptimizer::runIteration(
     result.update_time_s = std::chrono::duration<double>(t4 - t3).count();
     
     // -------------------------------------------------------------------------
-    // 7. Compute current volume fraction
+    // 7. Compute current volume fraction (design space only)
     // -------------------------------------------------------------------------
     Scalar vol_sum = 0.0;
-    #pragma omp parallel for reduction(+:vol_sum)
+    int64_t design_count = 0;
+    
+    #pragma omp parallel for reduction(+:vol_sum, design_count)
     for (int64_t e = 0; e < n_elements_; ++e) {
-        vol_sum += density[e];
+        // Use design_mask if available, otherwise fallback to density-based check
+        bool is_design = design_mask_.empty() ? 
+            (density[e] > config_.rho_min + 1e-6 && density[e] < 0.99) :
+            design_mask_[e];
+        
+        if (is_design) {
+            vol_sum += density[e];
+            ++design_count;
+        }
     }
-    result.volume_fraction = vol_sum / n_elements_;
+    
+    // Volume fraction is average density in design space
+    result.volume_fraction = (design_count > 0) ? vol_sum / design_count : vol_sum / n_elements_;
     
     return result;
 }
@@ -377,6 +402,39 @@ OptimizationResult TopologyOptimizer::run(
     // Ensure proper initialization
     if (density.size() != static_cast<size_t>(n_elements_)) {
         density.assign(n_elements_, config_.volume_fraction);
+    }
+    
+    // ==========================================================================
+    // Initialize design mask from initial densities
+    // ==========================================================================
+    // Elements are classified based on their INITIAL density:
+    // - Fixed (non-design): rho >= 0.99 (always solid)
+    // - Void (non-design): rho <= rho_min (always empty)
+    // - Design space: everything else (optimizable)
+    //
+    // This mask is computed ONCE and remains constant during optimization,
+    // preventing design elements from being misclassified as Fixed when they
+    // reach rho=1.0 during the optimization process.
+    // ==========================================================================
+    design_mask_.resize(n_elements_);
+    n_design_elements_ = 0;
+    
+    for (int64_t e = 0; e < n_elements_; ++e) {
+        Scalar rho = density[e];
+        // Design space: not fixed (rho < 0.99) and not void (rho > rho_min)
+        bool is_design = (rho > config_.rho_min + 1e-6) && (rho < 0.99);
+        design_mask_[e] = is_design;
+        if (is_design) ++n_design_elements_;
+    }
+    
+    if (config_.verbose) {
+        int64_t n_fixed = 0, n_void = 0;
+        for (int64_t e = 0; e < n_elements_; ++e) {
+            if (density[e] >= 0.99) ++n_fixed;
+            else if (density[e] <= config_.rho_min + 1e-6) ++n_void;
+        }
+        std::cout << "Design space: " << n_design_elements_ << " elements "
+                  << "(Fixed: " << n_fixed << ", Void: " << n_void << ")" << std::endl;
     }
     
     if (config_.verbose) {

@@ -409,6 +409,7 @@ void saveMetadata(const std::string& filename, const Config& cfg,
     file << "{\n"
          << "  \"case\": \"BRK-A-01\",\n"
          << "  \"mode\": \"cpp_standalone\",\n"
+         << "  \"provenance\": \"cpp_hpc_engine\",\n"
          << "  \"resolution_mm\": " << cfg.resolution_mm << ",\n"
          << "  \"domain_shape\": [" << domain.nx << ", " << domain.ny << ", " << domain.nz << "],\n"
          << "  \"n_elements\": " << domain.grid.size() << ",\n"
@@ -459,6 +460,8 @@ void printUsage(const char* prog) {
               << "  --move <limit>        Max density change per iter (default: 0.1)\n"
               << "  --emin <value>        Minimum modulus ratio (default: 1e-4)\n"
               << "  --output <dir>        Output directory (default: ./output)\n"
+              << "  --output_dir <dir>    Alias for --output\n"
+              << "  -o <dir>              Alias for --output\n"
               << "  --quiet               Disable verbose output\n"
               << "  --help                Show this help\n";
 }
@@ -490,6 +493,9 @@ bool parseArgs(int argc, char* argv[], Config& cfg) {
             cfg.E_min = std::stod(argv[++i]);
         }
         else if (arg == "--output" && i + 1 < argc) {
+            cfg.output_dir = argv[++i];
+        }
+        else if ((arg == "--output_dir" || arg == "-o") && i + 1 < argc) {
             cfg.output_dir = argv[++i];
         }
         else if (arg == "--quiet") {

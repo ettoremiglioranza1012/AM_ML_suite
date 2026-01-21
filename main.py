@@ -10,6 +10,7 @@ Supports multiple execution modes:
 import argparse
 import json
 import sys
+import uuid
 from pathlib import Path
 
 import numpy as np
@@ -29,8 +30,12 @@ def run_numerical(args: argparse.Namespace) -> dict:
     - Ground Truth for validation
     - Reference implementation
     """
+    # Generate unique run ID
+    run_id = str(uuid.uuid4())[:8]
+    
     print("=" * 60)
     print("AM - Topology Optimization (Numerical Solver)")
+    print(f"Run ID: {run_id}")
     print("=" * 60)
     
     # 1. Create domain
@@ -68,7 +73,7 @@ def run_numerical(args: argparse.Namespace) -> dict:
     result = optimizer.run()
     
     # 6. Save results
-    output_dir = Path(args.output_dir)
+    output_dir = Path("data") / run_id
     output_dir.mkdir(parents=True, exist_ok=True)
     
     # Save density field
@@ -78,6 +83,8 @@ def run_numerical(args: argparse.Namespace) -> dict:
     metadata = {
         "case": "BRK-A-01",
         "mode": "numerical",
+        "run_id": run_id,
+        "provenance": "python_prototype",
         "resolution_mm": resolution,
         "domain_shape": list(domain.shape),
         "volume_fraction_target": params.volume_fraction,
@@ -103,8 +110,12 @@ def run_ai(args: argparse.Namespace) -> dict:
     
     Requires a pre-trained model checkpoint.
     """
+    # Generate unique run ID
+    run_id = str(uuid.uuid4())[:8]
+    
     print("=" * 60)
     print("AM - Topology Optimization (AI Inference)")
+    print(f"Run ID: {run_id}")
     print("=" * 60)
     
     # Import AI module (lazy to avoid PyTorch dependency when not needed)
@@ -136,13 +147,15 @@ def run_ai(args: argparse.Namespace) -> dict:
         density = optimizer.predict(domain, [load_case])
         
         # Save results
-        output_dir = Path(args.output_dir)
+        output_dir = Path("data") / run_id
         output_dir.mkdir(parents=True, exist_ok=True)
         np.save(output_dir / "density_field.npy", density)
         
         metadata = {
             "case": "BRK-A-01",
             "mode": "ai",
+            "run_id": run_id,
+            "provenance": "python_prototype",
             "model_path": str(args.model_path),
             "resolution_mm": resolution,
             "domain_shape": list(domain.shape),

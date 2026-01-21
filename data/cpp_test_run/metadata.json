@@ -1,0 +1,24 @@
+{
+  "case": "BRK-A-01",
+  "mode": "cpp_standalone",
+  "provenance": "cpp_hpc_engine",
+  "resolution_mm": 4,
+  "domain_shape": [30, 15, 20],
+  "n_elements": 9000,
+  "n_design": 8151,
+  "n_fixed": 784,
+  "n_void": 65,
+  "volume_fraction_target": 0.25,
+  "volume_fraction_final": 0.249996,
+  "compliance_final": 5.01232,
+  "iterations": 5,
+  "converged": false,
+  "elapsed_time_s": 5.77752,
+  "openmp_threads": 10,
+  "simp_config": {
+    "filter_radius": 3.5,
+    "E_min": 0.0001,
+    "penalty": 3,
+    "move_limit": 0.1
+  }
+}
